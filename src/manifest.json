@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "AnimeXin YT Gestures",
+  "version": "0.1.0",
+  "description": "YouTube-style touch gestures and correct prev/next episode navigation for AnimeXin's Dailymotion player.",
+  "background": { "service_worker": "background.js" },
+  "permissions": ["tabs"],
+  "content_scripts": [
+    {
+      "matches": ["https://animexin.dev/*"],
+      "js": ["animexin.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://geo.dailymotion.com/*",
+        "https://www.dailymotion.com/*",
+        "https://ok.ru/*",
+        "https://mega.nz/*",
+        "https://rumble.com/*",
+        "https://gdriveplayer.to/*",
+        "https://dood.li/*",
+        "https://dood.ws/*"
+      ],
+      "all_frames": true,
+      "js": ["player.js"],
+      "css": ["player.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
