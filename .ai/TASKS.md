@@ -1,7 +1,9 @@
 # Tasks
 
 ## In Progress
-- none
+- Prev/next in-place episode swap: code done + verified in the desktop
+  browser; awaiting on-device confirmation (phone was disconnected from
+  adb when the crx was built — SHA-256 `11f95a99`).
 
 ## Todo
 - (idea, not approved) Auto-switch server/mirror when a stream stays

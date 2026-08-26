@@ -16,8 +16,53 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type === "axg-getnav") sendResponse(getNav());
+    if (msg?.type === "axg-getnav") {
+      sendResponse(getNav());
+      return;
+    }
+    if (msg?.type === "axg-gonav") {
+      const url = getNav()[msg.dir];
+      if (url) softNav(url);
+      sendResponse({ ok: !!url });
+    }
   });
+
+  // Episode navigation without a page load: fetch the target episode and swap
+  // the main column in place. The player iframe is recreated, so the gesture
+  // layer re-injects itself into it, and the mirror's server dropdown keeps
+  // working because its handler is an inline onchange="loadMi(this)" attribute
+  // calling a function that already lives on the page. Scripts parsed by
+  // DOMParser are inert, so nothing re-runs on insert.
+  let navigating = false;
+
+  async function softNav(url, push = true) {
+    if (navigating) return;
+    navigating = true;
+    try {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      const fresh = doc.querySelector(".postbody");
+      const here = document.querySelector(".postbody");
+      if (!fresh || !here) throw new Error("no .postbody in response");
+      here.replaceWith(fresh);
+      document.title = doc.title;
+      if (push) history.pushState({ axg: 1 }, "", url);
+      scrollTo(0, 0);
+      ytLayout();
+      collapsibleEpisodes();
+      console.log("[AXG] switched episode in place:", url);
+    } catch (e) {
+      // Never leave the user stranded: fall back to the full load we replaced.
+      console.warn("[AXG] in-place switch failed, loading normally", e);
+      location.href = url;
+    } finally {
+      navigating = false;
+    }
+  }
+
+  // Back/forward should swap in place too rather than reload.
+  addEventListener("popstate", () => softNav(location.href, false));
 
   // YouTube-style layout: video first, title below it, only series-related
   // sections kept (server select, prev/next, series info, related episodes).

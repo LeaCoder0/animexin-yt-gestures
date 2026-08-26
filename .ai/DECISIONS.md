@@ -1,6 +1,23 @@
 # Decision Log
 <!-- Append new entries below. Never delete old ones. -->
 
+### 2026-08-27 — Prev/next swaps the episode in place, no page load
+**Decision**: `background.js` now relays prev/next to the top frame as
+`axg-gonav` instead of calling `chrome.tabs.update`. `animexin.js`
+resolves the adjacent URL, fetches it, and replaces `.postbody` with the
+response's `.postbody`, then updates `document.title`, pushes history,
+scrolls to top and re-runs `ytLayout()` + `collapsibleEpisodes()`.
+`popstate` swaps too, so back/forward never reloads. Any failure falls
+back to `location.href = url`.
+**Why**: A full reload tore down the player and the whole page on every
+episode change. Swapping only the main column keeps it YouTube-like.
+Safe because the site's server dropdown is wired with an inline
+`onchange="loadMi(this)"` attribute calling a global that survives the
+swap, and DOMParser-parsed scripts are inert so nothing re-executes.
+Verified in the desktop browser: a canary global survived the swap
+(proving no reload), URL/title/iframe video id all advanced, and
+`loadMi` plus all 12 mirror options stayed intact.
+
 ### 2026-08-27 — The eye is a bypass switch, not a controls toggle
 **Decision**: Pressing `#axg-eye` stands our whole layer down: the
 overlay gets `.off` (`pointer-events: none; touch-action: auto`), the
