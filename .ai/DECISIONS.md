@@ -1,6 +1,19 @@
 # Decision Log
 <!-- Append new entries below. Never delete old ones. -->
 
+### 2026-08-27 — Signing key lives in a separate private vault repo
+**Decision**: `signing-key.pem` stays gitignored here; the canonical copy
+lives in the private repo `LeaCoder0/private-vault` (checked out at
+`~/user/lib/private-vault`), under
+`extensions/animexin-yt-gestures/`, with a README recording the derived
+extension ID `nkcddjnclmanbilibnfbdoakgjldnnkg` and the pack/restore
+commands.
+**Why**: This repo is public, so committing the key would publish it
+permanently and let anyone sign a CRX with our extension ID. The key
+still needs to survive a fresh clone, because signing with a different
+key changes the extension ID and Edge installs the result as a second
+extension instead of an update.
+
 ### 2026-08-27 — Fullscreen-only top dead zone as its own element
 **Decision**: The dead zone is a separate `#axg-topgap` element (sibling
 of the overlay, `z-index` above it, default `touch-action`), shown only
