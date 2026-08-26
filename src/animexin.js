@@ -54,5 +54,24 @@
     }
   }
 
+  // The episode list starts collapsed (animexin.css); tapping its header opens
+  // it. Late-rendered lists are picked up too, since the site re-renders this
+  // block when a different server is selected.
+  function collapsibleEpisodes(root = document) {
+    for (const head of root.querySelectorAll(".headlist")) {
+      if (head.dataset.axgToggle) continue;
+      head.dataset.axgToggle = "1";
+      head.addEventListener("click", (e) => {
+        e.preventDefault(); // the header wraps a link to the series page
+        head.classList.toggle("axg-open");
+      });
+    }
+  }
+
   ytLayout();
+  collapsibleEpisodes();
+  new MutationObserver(() => collapsibleEpisodes()).observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 })();

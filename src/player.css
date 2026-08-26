@@ -15,6 +15,19 @@ button.tap_to_unmute {
   user-select: none;
 }
 
+/* Fullscreen-only top dead zone. Default touch-action (unlike the overlay's
+   `none`) is what lets the notification shade pull through untouched; height
+   and visibility come from player.js. */
+#axg-topgap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: none;
+  z-index: 2147483100;
+  background: transparent;
+}
+
 #axg-badge {
   position: absolute;
   top: 50%;
@@ -36,6 +49,27 @@ button.tap_to_unmute {
   top: 14%;
   transform: translate(-50%, 0);
 }
+
+#axg-eye {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#axg-eye svg {
+  width: 22px;
+  height: 22px;
+}
+#axg-eye:active { background: rgba(255, 255, 255, 0.25); }
 
 #axg-controls {
   position: absolute;

@@ -9,6 +9,7 @@
     {
       "matches": ["https://animexin.dev/*"],
       "js": ["animexin.js"],
+      "css": ["animexin.css"],
       "run_at": "document_idle"
     },
     {

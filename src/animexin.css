@@ -1,0 +1,49 @@
+/* Top-frame cleanup. These widgets mount well after document_idle, so they are
+   hidden declaratively here rather than from ytLayout(), which only ever gets
+   one pass over the DOM. */
+
+/* Floating chat popups: Chatbro ("AnimeXin Chat") and the wpDiscuz comment
+   bubble. */
+[class*="chatbro"],
+#wpd-bubble-wrapper {
+  display: none !important;
+}
+
+/* Share row under the episode title. */
+.sosmed {
+  display: none !important;
+}
+
+/* Episode list: collapsed by default. Collapsing in CSS rather than waiting for
+   the script keeps the list from flashing open on load; animexin.js only
+   toggles .axg-open from here on. */
+.headlist {
+  position: relative;
+  cursor: pointer;
+}
+.headlist + .episodelist {
+  display: none;
+}
+.headlist.axg-open + .episodelist {
+  display: block;
+}
+
+/* Chevron: points down while collapsed, up once open. */
+.headlist::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+.headlist.axg-open::after {
+  margin-top: -2px;
+  transform: rotate(-135deg);
+}

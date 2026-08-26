@@ -27,10 +27,12 @@
   const SWIPE_MIN = 70;     // min vertical px for a swipe
   const HIDE_MS = 3000;     // controls auto-hide
   const NATIVE_STRIP = 56;  // bottom px left for the native seekbar
+  const TOP_GAP = 48;       // top px left free in fullscreen so pulling down the
+                            // notification shade never reads as a swipe-down
   const LONG_MS = 500;      // hold time before 2x speed kicks in
   const LONG_RATE = 2;
 
-  let video, overlay, controls, playBtn, badge, seek, timeLabel, seeking = false;
+  let video, overlay, topgap, controls, playBtn, eyeBtn, badge, seek, timeLabel, seeking = false;
   let seekAccum = 0, seekTimer = null, lastSeekDir = 0;
   let lastTap = { t: 0, zone: "" };
   let tapTimer = null, hideTimer = null, pStart = null;
@@ -44,6 +46,9 @@
     next: "M6 18l8.5-6L6 6v12zm10-12h2v12h-2z",
     play: "M8 5v14l11-7z",
     pause: "M6 19h4V5H6v14zm8-14v14h4V5h-4z",
+    eye: "M12 5C7 5 2.7 8.1 1 12.5c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5C21.3 8.1 17 5 12 5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z",
+    eyeOff:
+      "M12 5C7 5 2.7 8.1 1 12.5c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5C21.3 8.1 17 5 12 5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6zM3.7 2.3L21.7 20.3l-1.4 1.4L2.3 3.7z",
   };
   const icon = (path) =>
     `<svg viewBox="0 0 24 24" width="30" height="30" fill="#fff" aria-hidden="true"><path d="${path}"/></svg>`;
@@ -95,6 +100,23 @@
     else if (vid.currentTime > 5) localStorage.setItem(posKey(), String(vid.currentTime));
   }
 
+  // A mirror in click-to-play state keeps its <video> sourceless, and play() on
+  // a sourceless element never settles — awaiting it would stall autoStart for
+  // good. Pressing the player's own poster button is what attaches the source;
+  // a programmatic click is enough, no user gesture required.
+  const POSTER_BTN =
+    "button.button_play, .play_screen button, [class*='button_play']," +
+    " .vjs-big-play-button, button[aria-label*='play' i], button[title*='play' i]";
+
+  const notStarted = (vid) => !vid.currentSrc && vid.readyState === 0;
+
+  function pressPoster() {
+    const btn = document.querySelector(POSTER_BTN);
+    if (!btn) return false;
+    btn.click();
+    return true;
+  }
+
   // Unmute via Dailymotion's own tap-to-unmute button so its UI cleans up,
   // falling back to direct video properties.
   function unmute() {
@@ -109,6 +131,15 @@
   async function autoStart(attempt = 0) {
     const vid = v();
     if (!vid) return;
+    const retry = () => {
+      if (attempt < 8) setTimeout(() => autoStart(attempt + 1), 1000);
+    };
+    // Click-to-play mirror: press its poster rather than awaiting a play() that
+    // can never resolve. The source arrives a moment later, so come back round.
+    if (notStarted(vid)) {
+      pressPoster();
+      return retry();
+    }
     try {
       await vid.play();
       unmute();
@@ -119,7 +150,7 @@
       await vid.play();
       unmute(); // may still be denied without a gesture; gestureKick finishes it
     } catch (_) {}
-    if (attempt < 5 && (vid.paused || vid.muted)) setTimeout(() => autoStart(attempt + 1), 1000);
+    if (vid.paused || vid.muted) retry();
   }
 
   // Any real touch counts as a user gesture: use it to unmute/start playback.
@@ -129,6 +160,9 @@
   function gestureKick() {
     const vid = v();
     if (kicked || !vid) return;
+    // Player still on its poster: spend the touch on starting it, and stay
+    // armed so a later touch can finish the unmute.
+    if (notStarted(vid)) { pressPoster(); return; }
     if (!vid.paused && !vid.muted) { kicked = true; return; }
     unmute();
     if (vid.paused) vid.play().catch(() => {});
@@ -143,6 +177,14 @@
     badge = document.createElement("div");
     badge.id = "axg-badge";
     overlay.appendChild(badge);
+
+    // Fullscreen-only dead zone: a sibling stacked above the overlay, so the
+    // notification-shade pull never reaches the gesture handlers. Kept out of
+    // the overlay so the controls layer is never squeezed by it.
+    topgap = document.createElement("div");
+    topgap.id = "axg-topgap";
+    topgap.style.height = TOP_GAP + "px";
+    document.body.appendChild(topgap);
 
     controls = document.createElement("div");
     controls.id = "axg-controls";
@@ -164,6 +206,15 @@
     mk(ICONS.prev, () => nav("prev"));
     playBtn = mk(ICONS.pause, togglePlay);
     mk(ICONS.next, () => nav("next"));
+
+    // Show/hide toggle, pinned top-right of the player. Lives outside
+    // #axg-controls so it stays reachable while the controls are hidden.
+    eyeBtn = document.createElement("button");
+    eyeBtn.type = "button";
+    eyeBtn.id = "axg-eye";
+    eyeBtn.addEventListener("click", toggleControls);
+    shield(eyeBtn);
+    overlay.appendChild(eyeBtn);
 
     // Seekbar row at the bottom of the popup layer.
     const row = document.createElement("div");
@@ -212,10 +263,31 @@
       e.stopPropagation();
     }, true);
     document.addEventListener("fullscreenchange", () => {
+      syncChrome();
       if (!document.fullscreenElement) {
         try { screen.orientation.unlock(); } catch (_) {}
       }
     });
+    // fullscreenchange can be missed when the browser exits fullscreen itself
+    // (back gesture, orientation change); re-derive from the live state so a
+    // stale dead zone can never linger.
+    window.addEventListener("resize", syncChrome);
+    window.addEventListener("orientationchange", syncChrome);
+    syncChrome();
+    syncEye();
+  }
+
+  function syncChrome() {
+    const fs = !!document.fullscreenElement;
+    if (topgap) topgap.style.display = fs ? "block" : "none";
+    // Keep the eye out of the dead zone, which is stacked above the overlay and
+    // would otherwise swallow taps meant for it.
+    if (eyeBtn) eyeBtn.style.top = (fs ? TOP_GAP + 8 : 8) + "px";
+  }
+
+  function syncEye() {
+    if (eyeBtn)
+      eyeBtn.innerHTML = icon(controls.classList.contains("show") ? ICONS.eyeOff : ICONS.eye);
   }
 
   const zoneOf = (x) => {
@@ -343,11 +415,13 @@
     else {
       controls.classList.add("show");
       syncSeekbar();
+      syncEye();
       bump();
     }
   }
   function hideControls() {
     controls.classList.remove("show");
+    syncEye();
     clearTimeout(hideTimer);
   }
   function bump() {
