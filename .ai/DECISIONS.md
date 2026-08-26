@@ -1,6 +1,19 @@
 # Decision Log
 <!-- Append new entries below. Never delete old ones. -->
 
+### 2026-08-27 — Start click-to-play mirrors by pressing their own poster
+**Decision**: When the `<video>` has no source (`!currentSrc &&
+readyState === 0`), `player.js` clicks the mirror's own play button
+(`POSTER_BTN` selector list) instead of calling `video.play()`. Done from
+both `autoStart()` (retrying) and `gestureKick()`. The eye/controls path
+is untouched.
+**Why**: On Android the mirror stays on its click-to-play poster and
+keeps the element sourceless. `play()` on a sourceless element never
+settles — not resolve, not reject — so `await vid.play()` stalled
+`autoStart()` on its first attempt and silently killed the retry chain.
+Verified on-device that a *programmatic* click needs no user gesture: it
+attaches the source and plays unmuted.
+
 ### 2026-08-27 — Signing key lives in a separate private vault repo
 **Decision**: `signing-key.pem` stays gitignored here; the canonical copy
 lives in the private repo `LeaCoder0/private-vault` (checked out at
