@@ -35,6 +35,28 @@
   // DOMParser are inert, so nothing re-runs on insert.
   let navigating = false;
 
+  // Episode-bound <head> metadata. Only .postbody is swapped, so these would
+  // otherwise keep describing whichever episode was loaded from the network —
+  // share sheets and bookmarks read them.
+  const META = [
+    ['link[rel="canonical"]', "href"],
+    ['meta[property="og:title"]', "content"],
+    ['meta[property="og:url"]', "content"],
+    ['meta[property="og:image"]', "content"],
+    ['meta[property="og:description"]', "content"],
+    ['meta[name="description"]', "content"],
+    ['meta[name="twitter:title"]', "content"],
+    ['meta[name="twitter:image"]', "content"],
+  ];
+
+  function syncMeta(doc) {
+    for (const [sel, attr] of META) {
+      const from = doc.querySelector(sel);
+      const to = document.querySelector(sel);
+      if (from && to) to.setAttribute(attr, from.getAttribute(attr));
+    }
+  }
+
   async function softNav(url, push = true) {
     if (navigating) return;
     navigating = true;
@@ -47,6 +69,7 @@
       if (!fresh || !here) throw new Error("no .postbody in response");
       here.replaceWith(fresh);
       document.title = doc.title;
+      syncMeta(doc);
       if (push) history.pushState({ axg: 1 }, "", url);
       scrollTo(0, 0);
       ytLayout();

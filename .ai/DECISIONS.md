@@ -8,7 +8,10 @@ resolves the adjacent URL, fetches it, and replaces `.postbody` with the
 response's `.postbody`, then updates `document.title`, pushes history,
 scrolls to top and re-runs `ytLayout()` + `collapsibleEpisodes()`.
 `popstate` swaps too, so back/forward never reloads. Any failure falls
-back to `location.href = url`.
+back to `location.href = url`. `syncMeta()` also copies the
+episode-bound `<head>` tags (canonical, og:*, description, twitter:*),
+which would otherwise keep describing the episode that was loaded from
+the network — measured stale before this was added.
 **Why**: A full reload tore down the player and the whole page on every
 episode change. Swapping only the main column keeps it YouTube-like.
 Safe because the site's server dropdown is wired with an inline
