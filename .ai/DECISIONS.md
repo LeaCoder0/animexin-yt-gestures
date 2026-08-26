@@ -1,6 +1,20 @@
 # Decision Log
 <!-- Append new entries below. Never delete old ones. -->
 
+### 2026-08-27 — The eye is a bypass switch, not a controls toggle
+**Decision**: Pressing `#axg-eye` stands our whole layer down: the
+overlay gets `.off` (`pointer-events: none; touch-action: auto`), the
+fullscreen dead zone hides, the context-menu suppression lifts, and
+gestures/controls go inert — so every touch reaches the mirror's own
+player UI. Pressing it again restores everything. Single-tap on the
+video remains the controls toggle. While bypassed the eye does not
+auto-hide (it is dimmed to 0.6 instead), because it re-enables
+pointer-events on itself and is then the only way back.
+**Why**: The user needs the mirror's native UI (quality, captions, its
+own seekbar) reachable on demand; our overlay covers the player and
+swallows those touches. An on/off switch beats trying to guess which
+taps to forward.
+
 ### 2026-08-27 — Start click-to-play mirrors by pressing their own poster
 **Decision**: When the `<video>` has no source (`!currentSrc &&
 readyState === 0`), `player.js` clicks the mirror's own play button

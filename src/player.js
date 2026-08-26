@@ -38,6 +38,7 @@
   let lastTap = { t: 0, zone: "" };
   let tapTimer = null, hideTimer = null, eyeTimer = null, pStart = null;
   let lpTimer = null, lpActive = false, lpPrevRate = 1;
+  let bypass = false;       // our layer stood down so the mirror's own UI works
 
   const v = () => (video = document.querySelector("video") || video);
 
@@ -213,7 +214,7 @@
     eyeBtn = document.createElement("button");
     eyeBtn.type = "button";
     eyeBtn.id = "axg-eye";
-    eyeBtn.addEventListener("click", () => { toggleControls(); bumpEye(); });
+    eyeBtn.addEventListener("click", () => setBypass(!bypass));
     shield(eyeBtn);
     overlay.appendChild(eyeBtn);
 
@@ -258,8 +259,10 @@
     overlay.addEventListener("pointerup", onUp);
     overlay.addEventListener("pointermove", onMove);
     overlay.addEventListener("pointercancel", () => { endLongPress(); pStart = null; });
-    // Long-press must mean 2x speed, not the context menu (Video ID / Ad console).
+    // Long-press must mean 2x speed, not the context menu (Video ID / Ad console)
+    // — but while we are stood down, the mirror's own menus are the point.
     document.addEventListener("contextmenu", (e) => {
+      if (bypass) return;
       e.preventDefault();
       e.stopPropagation();
     }, true);
@@ -279,26 +282,48 @@
     bumpEye(); // visible briefly on load, then out of the way
   }
 
-  function syncChrome() {
-    const fs = !!document.fullscreenElement;
-    if (topgap) topgap.style.display = fs ? "block" : "none";
-    // Keep the eye out of the dead zone, which is stacked above the overlay and
-    // would otherwise swallow taps meant for it.
-    if (eyeBtn) eyeBtn.style.top = (fs ? TOP_GAP + 8 : 8) + "px";
+  // Stand our whole layer down so every touch reaches the mirror's own player
+  // UI (quality, captions, its own seekbar), and back up again. The overlay
+  // stops hit-testing entirely; only the eye keeps pointer-events, which is
+  // why it must stay put while bypassed — it is the sole way back.
+  function setBypass(on) {
+    bypass = on;
+    overlay.classList.toggle("off", on);
+    if (eyeBtn) eyeBtn.classList.toggle("off", on);
+    if (on) {
+      endLongPress();
+      hideControls();
+      badge.classList.remove("show");
+      pStart = null;
+      clearTimeout(tapTimer);
+    }
+    syncChrome();
+    syncEye();
+    bumpEye();
   }
 
+  function syncChrome() {
+    const fs = !!document.fullscreenElement;
+    // The dead zone is stacked above the overlay, so it has to stand down too.
+    if (topgap) topgap.style.display = fs && !bypass ? "block" : "none";
+    // Keep the eye clear of the dead zone, which would swallow taps meant for it.
+    if (eyeBtn) eyeBtn.style.top = (fs && !bypass ? TOP_GAP + 8 : 8) + "px";
+  }
+
+  // Open eye = our layer is live; slashed = stood down.
   function syncEye() {
-    if (eyeBtn)
-      eyeBtn.innerHTML = icon(controls.classList.contains("show") ? ICONS.eyeOff : ICONS.eye);
+    if (eyeBtn) eyeBtn.innerHTML = icon(bypass ? ICONS.eyeOff : ICONS.eye);
   }
 
   // The toggle shows itself on any touch and fades back out a second later, so
   // it never sits over the video for long. Hidden means pointer-events: none,
-  // so the corner it occupies keeps forwarding taps to the gesture layer.
+  // so the corner it occupies keeps forwarding taps to the gesture layer. While
+  // bypassed it stays visible: nothing else of ours would receive a touch.
   function bumpEye() {
     if (!eyeBtn) return;
     eyeBtn.classList.add("show");
     clearTimeout(eyeTimer);
+    if (bypass) return;
     eyeTimer = setTimeout(() => eyeBtn.classList.remove("show"), EYE_MS);
   }
 

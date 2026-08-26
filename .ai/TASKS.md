@@ -21,9 +21,11 @@
   was NOT the cause — the probe's "PLAYING BUT MUTED" verdict was a
   false positive (it read `paused === false` on a sourceless element)
   and masked the real bug. Verdict logic fixed in the probe.
-- Added the top-right eye show/hide toggle (never existed before, despite
-  being remembered as such — checked all of git history), auto-hiding
-  after 1s with `pointer-events: none` while hidden.
+- Added the top-right eye button (never existed before, despite being
+  remembered as such — checked all of git history), auto-hiding after 1s
+  with `pointer-events: none` while hidden. Reworked from a controls
+  toggle into a **bypass switch** for the whole overlay on user feedback;
+  see DECISIONS 2026-08-27.
 - Hid the Chatbro + wpDiscuz chat popups and the `.sosmed` share row, and
   made `.headlist` collapsible (collapsed by default) via `animexin.css`.
 - Signing key moved to the private vault repo. See DECISIONS 2026-08-27.

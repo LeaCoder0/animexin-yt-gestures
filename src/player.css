@@ -15,6 +15,14 @@ button.tap_to_unmute {
   user-select: none;
 }
 
+/* Stood down: stop hit-testing so every touch, scroll and pinch reaches the
+   mirror's own player UI. #axg-eye re-enables pointer-events on itself, which
+   is what keeps the way back reachable. */
+#axg-overlay.off {
+  pointer-events: none;
+  touch-action: auto;
+}
+
 /* Fullscreen-only top dead zone. Default touch-action (unlike the overlay's
    `none`) is what lets the notification shade pull through untouched; height
    and visibility come from player.js. */
@@ -71,6 +79,11 @@ button.tap_to_unmute {
 #axg-eye.show {
   opacity: 1;
   pointer-events: auto;
+}
+/* Dimmed while stood down, since it then stays on screen for good. */
+#axg-eye.show.off {
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.4);
 }
 #axg-eye svg {
   width: 22px;
