@@ -64,6 +64,13 @@ button.tap_to_unmute {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+#axg-eye.show {
+  opacity: 1;
+  pointer-events: auto;
 }
 #axg-eye svg {
   width: 22px;

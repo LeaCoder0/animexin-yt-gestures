@@ -26,6 +26,7 @@
   const DBL_MS = 300;       // max gap between taps of a double-tap
   const SWIPE_MIN = 70;     // min vertical px for a swipe
   const HIDE_MS = 3000;     // controls auto-hide
+  const EYE_MS = 1000;      // show/hide toggle auto-hide
   const NATIVE_STRIP = 56;  // bottom px left for the native seekbar
   const TOP_GAP = 48;       // top px left free in fullscreen so pulling down the
                             // notification shade never reads as a swipe-down
@@ -35,7 +36,7 @@
   let video, overlay, topgap, controls, playBtn, eyeBtn, badge, seek, timeLabel, seeking = false;
   let seekAccum = 0, seekTimer = null, lastSeekDir = 0;
   let lastTap = { t: 0, zone: "" };
-  let tapTimer = null, hideTimer = null, pStart = null;
+  let tapTimer = null, hideTimer = null, eyeTimer = null, pStart = null;
   let lpTimer = null, lpActive = false, lpPrevRate = 1;
 
   const v = () => (video = document.querySelector("video") || video);
@@ -212,7 +213,7 @@
     eyeBtn = document.createElement("button");
     eyeBtn.type = "button";
     eyeBtn.id = "axg-eye";
-    eyeBtn.addEventListener("click", toggleControls);
+    eyeBtn.addEventListener("click", () => { toggleControls(); bumpEye(); });
     shield(eyeBtn);
     overlay.appendChild(eyeBtn);
 
@@ -275,6 +276,7 @@
     window.addEventListener("orientationchange", syncChrome);
     syncChrome();
     syncEye();
+    bumpEye(); // visible briefly on load, then out of the way
   }
 
   function syncChrome() {
@@ -290,6 +292,16 @@
       eyeBtn.innerHTML = icon(controls.classList.contains("show") ? ICONS.eyeOff : ICONS.eye);
   }
 
+  // The toggle shows itself on any touch and fades back out a second later, so
+  // it never sits over the video for long. Hidden means pointer-events: none,
+  // so the corner it occupies keeps forwarding taps to the gesture layer.
+  function bumpEye() {
+    if (!eyeBtn) return;
+    eyeBtn.classList.add("show");
+    clearTimeout(eyeTimer);
+    eyeTimer = setTimeout(() => eyeBtn.classList.remove("show"), EYE_MS);
+  }
+
   const zoneOf = (x) => {
     const w = overlay.clientWidth;
     return x < w / 3 ? "left" : x > (2 * w) / 3 ? "right" : "center";
@@ -297,6 +309,7 @@
 
   function onDown(e) {
     gestureKick();
+    bumpEye();
     pStart = { x: e.clientX, y: e.clientY, t: Date.now() };
     clearTimeout(lpTimer);
     lpTimer = setTimeout(startLongPress, LONG_MS);
