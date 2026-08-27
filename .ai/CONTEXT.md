@@ -11,19 +11,22 @@ Android, sideloaded as `.crx`. Tested on desktop via Brave + Playwright
 over CDP.
 
 ## Current Task
-Done: eye button moved to the top-left, and the Ok.ru wrong-duration /
-dead-double-tap bug fixed by choosing the mirror's content `<video>`
-instead of the first one in the DOM. See DECISIONS 2026-08-27.
+None open. Last shipped: the eye button moved to the top-left, and the
+Ok.ru wrong-duration / dead-double-tap fix. Awaiting on-device
+confirmation — see TASKS.
 
 ## Blocker
 none
 
 ## Conventions
 - All player-frame constants live at the top of `src/player.js`
-  (SEEK_STEP, TOP_GAP, NATIVE_STRIP, …).
+  (SEEK_STEP, TOP_GAP, NATIVE_STRIP, MIN_CONTENT_DUR, …).
+- Never use `document.querySelector("video")` — mirrors carry decoy
+  elements. Resolve through `pickVideo()`, and reach the current element
+  through `v()`.
 - `window.__axg` debug handle in player.js for DevTools/CDP driving.
 - Content-script world is isolated: from CDP, detect injection via the
-  `#axg-overlay` DOM node (or hidden `#sidebar`), never `window.__axgInit`.
+  `#axg-overlay` DOM node, never `window.__axgInit`.
 
 ## Key Files
 - `src/manifest.json` — content scripts per host + background worker
@@ -32,29 +35,26 @@ none
 - `src/player.css` — overlay/badge/seekbar styling
 - `src/background.js` — relays prev/next to tab navigation
 - `tools/probe_autoplay.py` — CDP/Playwright autoplay probe (desktop or
-  Android via `adb forward`); prints blocked dailymotion requests
+  Android via `adb forward`)
 
-## Test environment notes (2026-08-27)
-- User's desktop Chrome on CDP port 9191 does NOT have the extension
-  loaded — don't use it to judge extension behaviour.
-- Repro rig: Brave (`/usr/bin/brave-browser`) via
-  `launch_persistent_context` with `--load-extension`, mobile UA +
-  `is_mobile` + touch. Brave is preferred over Chrome (its shields
-  approximate Edge's built-in adblock).
-- uBlock Origin 1.74 (MV2) fails to load in Brave/Chromium 151 and
-  poisons the whole `--load-extension` list; use uBO Lite (MV3) from
-  `~/user/lib/testing/ubolite` (v2026.825.1619) for adblock repros —
-  it must be in every rig launch, not just adblock-specific ones.
-- Ok.ru's stream CDN (`vd471.okcdn.ru`) is unreachable from this
-  machine (ERR_ABORTED, geo), so an Ok.ru mirror cannot be played
-  locally. To exercise the Ok.ru code path, inject a real long video
-  into the frame (`ffmpeg -f lavfi -i color=...:r=2 -t 1337`, ~39 KB,
-  loaded as a blob URL). Faking `duration` with
-  `Object.defineProperty` from Playwright does NOT work: each world
-  has its own DOM wrappers, so the content script still sees the
-  native value.
-- The default mirror differs per episode — ep212 is Ok.ru, ep283 is
-  Dailymotion. Always check which mirror an episode actually loads
-  before assuming a bug is general.
-- User's phone: Edge Canary + built-in adblock enabled + uBlock
-  extension installed.
+## Environment facts
+Testing *rules* (which browser, adblock) live in RULES.md; these are the
+plain facts about this machine.
+
+- Rig: Brave (`/usr/bin/brave-browser`) via `launch_persistent_context`,
+  loading `src` **and** `~/user/lib/testing/ubolite`, with mobile UA +
+  `is_mobile` + touch.
+- The desktop Chrome on CDP port 9191 has no extensions loaded. Useful
+  for reading page/DOM structure, useless for judging our behaviour.
+- The default mirror differs per episode (ep212 → Ok.ru, ep283 →
+  Dailymotion). Check which one an episode actually loads before
+  treating a bug as general.
+- Ok.ru's stream CDN (`vd471.okcdn.ru`) is unreachable from here
+  (ERR_ABORTED, geo), so an Ok.ru mirror cannot be played locally. To
+  exercise that path, inject a real long video as a blob URL:
+  `ffmpeg -f lavfi -i color=c=black:s=64x64:r=2 -t 1337` (~39 KB).
+- Faking `duration` with `Object.defineProperty` from Playwright does
+  **not** work: each world has its own DOM wrappers, so the content
+  script still reads the native value.
+- There is no signing key in this checkout by design. The pack command,
+  which names the vault key, lives in the vault's README.
