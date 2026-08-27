@@ -39,8 +39,65 @@
   let tapTimer = null, hideTimer = null, eyeTimer = null, pStart = null;
   let lpTimer = null, lpActive = false, lpPrevRate = 1;
   let bypass = false;       // our layer stood down so the mirror's own UI works
+  let nudging = false;      // poster-press chain already running
 
-  const v = () => (video = document.querySelector("video") || video);
+  // Ok.ru drops a 1-second `stub.mp4` element into the frame the first time it
+  // sees a gesture — that is how it unlocks autoplay — and then collapses it to
+  // 0x0. It is always the first <video> in the DOM, so `querySelector("video")`
+  // latched onto it for good: the seekbar read a 1-second duration instead of
+  // the episode's 22:17, and play/pause toggled a hidden element.
+  const STUB_SRC = /res\/i\/video\/stub\.mp4/i;
+  const MIN_CONTENT_DUR = 2;  // seconds; anything shorter is a stub, not an episode
+
+  // Deciding the moment an element appears is what put us on the stub: a fresh
+  // stub and a fresh player element are identical then — no source, duration
+  // NaN, and 300x150, the intrinsic default box of a sourceless <video>
+  // (measured on Ok.ru). Real metadata is the first unambiguous signal, so we
+  // wait for it rather than guess.
+  const isContent = (el) =>
+    el.duration >= MIN_CONTENT_DUR &&          // NaN and the 1s stub both fail
+    el.clientWidth > 0 && el.clientHeight > 0 &&  // a hidden element is not the one
+    !STUB_SRC.test(el.currentSrc || el.src || "");
+
+  // Among genuine candidates, playing beats paused and the bigger box wins.
+  const rankOf = (el) => [el.paused ? 0 : 1, el.clientWidth * el.clientHeight];
+  const outranks = (a, b) => {
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
+    return false;
+  };
+
+  // The mirror's content element, or null while none has real metadata yet.
+  function pickVideo() {
+    let best = null, bestRank = null;
+    for (const el of document.querySelectorAll("video")) {
+      if (!isContent(el)) continue;
+      const r = rankOf(el);
+      if (!best || outranks(r, bestRank)) { best = el; bestRank = r; }
+    }
+    return best;
+  }
+
+  const v = () => video;
+
+  // Our listeners have to follow the element. A mirror can replace its <video>
+  // (or turn a stub into the real stream by swapping the src) long after we
+  // booted, and listeners stranded on the old element freeze the seekbar, the
+  // time label and the play icon.
+  const VID_BINDINGS = [
+    ["play", syncPlayIcon],
+    ["pause", syncPlayIcon],
+    ["durationchange", syncSeekbar],
+    ["timeupdate", syncSeekbar],
+    ["timeupdate", savePos],
+  ];
+
+  function attach(el) {
+    if (!el || el === video) return;
+    if (video) for (const [ev, fn] of VID_BINDINGS) video.removeEventListener(ev, fn);
+    video = el;
+    for (const [ev, fn] of VID_BINDINGS) el.addEventListener(ev, fn);
+    if (overlay) { syncPlayIcon(); syncSeekbar(); }
+  }
 
   // Inline SVG icons: emoji glyphs render as colored emoji on Android fonts.
   const ICONS = {
@@ -55,21 +112,61 @@
   const icon = (path) =>
     `<svg viewBox="0 0 24 24" width="30" height="30" fill="#fff" aria-hidden="true"><path d="${path}"/></svg>`;
 
+  // Media events do not bubble, but they still travel the capture phase, so one
+  // listener on the document sees every element's — including a stub element
+  // that later becomes the real stream, which mutates no children and would
+  // therefore be invisible to a MutationObserver.
+  const MEDIA_EVENTS = ["loadedmetadata", "durationchange", "play", "playing", "emptied"];
+
+  let booted = false, watching = false;
+
+  function watchForVideo() {
+    if (watching) return;
+    watching = true;
+    new MutationObserver(onMediaChange).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    for (const ev of MEDIA_EVENTS) document.addEventListener(ev, onMediaChange, true);
+    // Neither hook covers a player that reveals itself by flipping a class:
+    // no media event, no child added. A 1s re-check until we are up costs
+    // nothing and makes the wait timing-proof.
+    const poll = setInterval(() => (booted ? clearInterval(poll) : boot()), 1000);
+  }
+
+  // Before boot: keep looking for the content element. After: keep our
+  // listeners on whichever element is currently the content element.
+  function onMediaChange() {
+    if (!booted) return void boot();
+    const best = pickVideo();
+    // Only ever upgrade. A momentary 0x0 (fullscreen transitions) must not
+    // strand us on nothing, but a mirror swapping in a new element must win.
+    if (best && best !== video) attach(best);
+  }
+
+  // Click-to-play mirrors (Ok.ru, Rumble, Dood, ...) only build their content
+  // <video> once their own play control is pressed; a programmatic click is
+  // enough. Bounded, because on a mirror that needs a real touch this would
+  // otherwise click forever.
+  function nudgePoster(attempt = 0) {
+    // Stop the moment real content exists: the mirror's play button becomes its
+    // pause button, and another click would stop the episode we just started.
+    if (booted || attempt > 7 || pickVideo()) return;
+    pressPoster();
+    setTimeout(() => nudgePoster(attempt + 1), 1200);
+  }
+
   function boot() {
+    if (booted) return;
     if (!document.body) return void setTimeout(boot, 300);
-    if (!document.querySelector("video")) {
-      // Click-to-play mirrors (Rumble, Dood, ...) create the <video> lazily —
-      // wait for it without polling.
-      const mo = new MutationObserver(() => {
-        if (document.querySelector("video")) {
-          mo.disconnect();
-          boot();
-        }
-      });
-      mo.observe(document.documentElement, { childList: true, subtree: true });
+    watchForVideo();
+    const vid = pickVideo();
+    if (!vid) {
+      if (!nudging) { nudging = true; nudgePoster(); }
       return;
     }
-    v();
+    booted = true;
+    attach(vid);
     build();
     restorePos();
     autoStart();
@@ -82,6 +179,7 @@
 
   function restorePos() {
     const vid = v();
+    if (!vid) return;
     const saved = parseFloat(localStorage.getItem(posKey()));
     if (!saved || saved < 5) return;
     const apply = () => {
@@ -94,7 +192,7 @@
   let lastSave = 0;
   function savePos() {
     const vid = v();
-    if (!vid.duration || vid.seeking) return;
+    if (!vid || !vid.duration || vid.seeking) return;
     const now = Date.now();
     if (now - lastSave < 2000) return;
     lastSave = now;
@@ -108,7 +206,8 @@
   // a programmatic click is enough, no user gesture required.
   const POSTER_BTN =
     "button.button_play, .play_screen button, [class*='button_play']," +
-    " .vjs-big-play-button, button[aria-label*='play' i], button[title*='play' i]";
+    " .vjs-big-play-button, .vid_play, button[aria-label*='play' i]," +
+    " button[title*='play' i]";
 
   const notStarted = (vid) => !vid.currentSrc && vid.readyState === 0;
 
@@ -209,7 +308,7 @@
     playBtn = mk(ICONS.pause, togglePlay);
     mk(ICONS.next, () => nav("next"));
 
-    // Show/hide toggle, pinned top-right of the player. Lives outside
+    // Show/hide toggle, pinned top-left of the player. Lives outside
     // #axg-controls so it stays reachable while the controls are hidden.
     eyeBtn = document.createElement("button");
     eyeBtn.type = "button";
@@ -248,10 +347,8 @@
     overlay.appendChild(controls);
     document.body.appendChild(overlay);
 
-    v().addEventListener("play", syncPlayIcon);
-    v().addEventListener("pause", syncPlayIcon);
-    v().addEventListener("timeupdate", syncSeekbar);
-    v().addEventListener("timeupdate", savePos);
+    // The per-element listeners live in attach(), so they can follow a mirror
+    // that swaps its <video> out from under us.
     syncPlayIcon();
     syncSeekbar();
 
@@ -361,7 +458,7 @@
     clearTimeout(lpTimer);
     if (!lpActive) return false;
     lpActive = false;
-    v().playbackRate = lpPrevRate;
+    if (v()) v().playbackRate = lpPrevRate;
     badge.classList.remove("show");
     return true;
   }
@@ -402,11 +499,12 @@
   }
 
   function seekBy(delta) {
+    const vid = v();
+    if (!vid) return;
     const dir = Math.sign(delta);
     if (dir !== lastSeekDir) seekAccum = 0;
     lastSeekDir = dir;
     seekAccum += Math.abs(delta);
-    const vid = v();
     vid.currentTime = Math.max(0, Math.min(vid.duration || 1e9, vid.currentTime + delta));
     badge.textContent = dir > 0 ? `▶︎▶︎ +${seekAccum}s` : `◀︎◀︎ −${seekAccum}s`;
     badge.className = dir > 0 ? "right" : "left";
@@ -421,12 +519,14 @@
 
   function togglePlay() {
     const vid = v();
+    if (!vid) return;
     if (vid.paused) vid.play();
     else vid.pause();
   }
 
   function syncPlayIcon() {
-    playBtn.innerHTML = icon(v().paused ? ICONS.play : ICONS.pause);
+    if (!playBtn || !video) return;
+    playBtn.innerHTML = icon(video.paused ? ICONS.play : ICONS.pause);
   }
 
   const fmt = (s) => {
@@ -438,12 +538,14 @@
 
   function updateTimeLabel() {
     const vid = v();
+    if (!timeLabel || !vid) return;
     timeLabel.textContent = `${fmt(vid.currentTime)} / ${fmt(vid.duration)}`;
   }
 
   function syncSeekbar() {
-    if (seeking || !controls.classList.contains("show")) return;
+    if (!controls || seeking || !controls.classList.contains("show")) return;
     const vid = v();
+    if (!vid) return;
     if (vid.duration) seek.value = Math.round((vid.currentTime / vid.duration) * 1000);
     updateTimeLabel();
   }

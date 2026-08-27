@@ -11,12 +11,9 @@ Android, sideloaded as `.crx`. Tested on desktop via Brave + Playwright
 over CDP.
 
 ## Current Task
-Fix mobile-reported issues: (1) top dead-zone in fullscreen so the
-notification-shade pull doesn't trigger swipe-down — DONE in code;
-(2) autoplay broken on the user's phone — root-caused to the adblocker
-(uBlock) blocking `dmxleo.dailymotion.com/cdn/manifest/*.m3u8`
-(ERR_BLOCKED_BY_CLIENT), so the video never gets a source. Not an
-extension bug.
+Done: eye button moved to the top-left, and the Ok.ru wrong-duration /
+dead-double-tap bug fixed by choosing the mirror's content `<video>`
+instead of the first one in the DOM. See DECISIONS 2026-08-27.
 
 ## Blocker
 none
@@ -46,6 +43,18 @@ none
   approximate Edge's built-in adblock).
 - uBlock Origin 1.74 (MV2) fails to load in Brave/Chromium 151 and
   poisons the whole `--load-extension` list; use uBO Lite (MV3) from
-  `/tmp/ubolite` for adblock repros.
+  `~/user/lib/testing/ubolite` (v2026.825.1619) for adblock repros —
+  it must be in every rig launch, not just adblock-specific ones.
+- Ok.ru's stream CDN (`vd471.okcdn.ru`) is unreachable from this
+  machine (ERR_ABORTED, geo), so an Ok.ru mirror cannot be played
+  locally. To exercise the Ok.ru code path, inject a real long video
+  into the frame (`ffmpeg -f lavfi -i color=...:r=2 -t 1337`, ~39 KB,
+  loaded as a blob URL). Faking `duration` with
+  `Object.defineProperty` from Playwright does NOT work: each world
+  has its own DOM wrappers, so the content script still sees the
+  native value.
+- The default mirror differs per episode — ep212 is Ok.ru, ep283 is
+  Dailymotion. Always check which mirror an episode actually loads
+  before assuming a bug is general.
 - User's phone: Edge Canary + built-in adblock enabled + uBlock
   extension installed.

@@ -82,3 +82,43 @@ shade pull without touching the controls' geometry.
 matters.
 **Why**: User's phone runs Edge Canary with built-in adblock + uBlock;
 Chrome without adblock hides adblock-caused failures (user correction).
+
+### 2026-08-27 — Drive the mirror's *content* video, chosen by metadata
+**Decision**: `player.js` no longer uses `document.querySelector("video")`.
+`pickVideo()` returns the best candidate among elements that pass
+`isContent()` — a duration of at least `MIN_CONTENT_DUR` (2s), a non-zero
+rendered box, and not Ok.ru's `res/i/video/stub.mp4` — ranked by
+playing-beats-paused then by area. The overlay is not built until such an
+element exists, and `attach()` moves our `play`/`pause`/`durationchange`/
+`timeupdate` listeners onto it, re-running from document-level **capture**
+listeners for the media events plus a MutationObserver and a 1s poll, so a
+mirror that swaps its `<video>` (or turns a stub into the real stream by
+changing `src`) is followed instead of stranding us. Starting a click-to-play
+mirror is now a separate concern: `nudgePoster()` presses `POSTER_BTN` (which
+gained Ok.ru's `.vid_play`) up to 8 times pre-boot, and stops as soon as
+`pickVideo()` is non-null so it can never click a control that has become
+"pause".
+**Why**: Episode 212 defaults to the Ok.ru mirror, which parks a 1-second
+`stub.mp4` element in the frame to unlock autoplay and then collapses it to
+0x0. It is always the first `<video>` in the DOM, so we latched onto it: the
+seekbar read a 1-second duration instead of the episode's 22:17 and play/pause
+toggled a hidden element — exactly the two symptoms reported. Dailymotion
+episodes worked only by luck, their real element happening to come first (they
+also carry two 0x0 `NaN` decoys).
+Deciding at first sight cannot work and was tried first: in the instant a
+`<video>` is appended, Ok.ru's stub and a genuine player element are
+indistinguishable — no source, `duration` `NaN`, and a 300x150 box (the
+intrinsic default of a sourceless `<video>`, measured on Ok.ru). Waiting for
+real metadata is the first unambiguous signal.
+**Verified** in Brave with the extension + uBO Lite loaded, mobile emulation:
+ep212 shows `0:17 / 22:17` (matching the duration Ok.ru's own card advertises),
+double-tap centre pauses the real element, double-tap right seeks 21.6s ->
+31.6s; with adblock off, 7 stubs present and the overlay correctly stays out.
+ep283 unchanged: attaches, `0:13 / 15:18`, double-tap pauses the 918.9s
+element.
+
+### 2026-08-27 — The eye sits in the top-LEFT corner
+**Decision**: `#axg-eye` is `left: 8px` instead of `right: 8px`. Nothing else
+moves; `syncChrome()` still pushes its `top` below `TOP_GAP` in fullscreen.
+**Why**: User request. Reachability with the left thumb, and the top-right of
+the player is where mirrors tend to put their own chrome.

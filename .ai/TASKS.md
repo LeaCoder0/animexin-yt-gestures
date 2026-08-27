@@ -1,15 +1,33 @@
 # Tasks
 
 ## In Progress
-- Prev/next in-place episode swap: code done + verified in the desktop
-  browser; awaiting on-device confirmation (phone was disconnected from
-  adb when the crx was built — SHA-256 `11f95a99`).
+- Awaiting on-device confirmation for two changes: the prev/next
+  in-place episode swap (verified in the desktop browser; the phone was
+  disconnected from adb when that crx was built — SHA-256 `11f95a99`)
+  and the Ok.ru content-video fix below. The Ok.ru stream CDN is
+  unreachable from this machine, so only the phone can confirm the real
+  Ok.ru player end to end.
 
 ## Todo
+- (idea, not approved) Tighten `POSTER_BTN`: the loose
+  `button[aria-label*='play' i]` / `button[title*='play' i]` entries can
+  match an ad overlay's button, and each synthetic click is a fresh user
+  activation — a popunder surface. Not the cause of anything observed.
 - (idea, not approved) Auto-switch server/mirror when a stream stays
   sourceless or is blocked.
 
 ## Done
+- Moved the eye button to the top-left corner (2026-08-27).
+- Fixed episode 212: it defaults to the **Ok.ru** mirror, whose player
+  parks a 1-second 0x0 `stub.mp4` element in the frame as its autoplay
+  unlock. `querySelector("video")` returned that stub, so the seekbar
+  showed a 1-second duration instead of 22:17 and double-tap play/pause
+  toggled a hidden element. Now the content element is chosen by real
+  metadata and our listeners follow it. See DECISIONS 2026-08-27.
+- Established that the extra tab appearing during mobile-size testing is
+  AnimeXin's own dtscout `pt:"tabup"` popunder, not the extension: it
+  fires with the extension disabled and on desktop too, and is
+  gesture-gated, so it can steal test taps. uBO Lite suppresses it.
 - Read/understood project (2026-08-26).
 - TOP_GAP=48px top dead zone in fullscreen — as a separate
   `#axg-topgap` element, after the first (overlay-offset) attempt hid

@@ -12,6 +12,16 @@
   adblock-caused differences (user correction, 2026-08-27).
 - The user's phone setup is Edge Canary + built-in adblock + uBlock;
   any playback bug must be tested with an adblocker in the loop.
+- **Always launch the repro rig with uBO Lite in `--load-extension`,
+  not just our extension** (user correction, 2026-08-27). Without it
+  AnimeXin's dtscout ad stack fires a `pt:"tabup"` popunder on every
+  tap that reaches the page, which steals test taps and reads as
+  extension misbehaviour. uBO Lite (MV3) now lives at
+  `~/user/lib/testing/ubolite` — a durable path, because the previous
+  copy in `/tmp` vanished on reboot and left the rig unprotected.
+- Adblock changes which code paths exist, so cover both: with uBO Lite
+  on, Ok.ru never creates its autoplay stub at all, so the stub
+  rejection can only be exercised with adblock **off**.
 - From CDP/Playwright, content-script state is invisible to main-world
   `evaluate`; check injected DOM (`#axg-overlay`) instead.
 - Long python-over-CDP probes: always run `python3 -u` inside
