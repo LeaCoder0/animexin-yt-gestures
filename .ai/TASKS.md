@@ -17,6 +17,11 @@
   sourceless or is blocked.
 
 ## Done
+- Repacked the crx with the **vault** signing key (ID
+  `nkcddjnclmanbilibnfbdoakgjldnnkg`, sha256 `c59b7865`) and pushed the
+  source as `dfd5a73`. The adb install is still pending: the OnePlus 13R
+  is on USB but `adb devices` is empty (USB debugging not authorised).
+  See DECISIONS 2026-08-27 for the signing-key correction.
 - Moved the eye button to the top-left corner (2026-08-27).
 - Fixed episode 212: it defaults to the **Ok.ru** mirror, whose player
   parks a 1-second 0x0 `stub.mp4` element in the frame as its autoplay

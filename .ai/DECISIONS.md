@@ -122,3 +122,27 @@ element.
 moves; `syncChrome()` still pushes its `top` below `TOP_GAP` in fullscreen.
 **Why**: User request. Reachability with the left thumb, and the top-right of
 the player is where mirrors tend to put their own chrome.
+
+### 2026-08-27 — The vault key is the signing key; an earlier key shipped before it
+**Decision**: Pack with the vault copy
+(`~/user/lib/private-vault/extensions/animexin-yt-gestures/signing-key.pem`),
+extension ID `nkcddjnclmanbilibnfbdoakgjldnnkg` — the ID this log and the
+vault README already record. Confirmed by deriving the ID from the key and
+by checking the public key embedded in the packed CRX3 header.
+**Correction to the record**: builds before today were *not* signed with that
+key. `signing-key.pem` in this working copy is a different, older key
+(2026-08-24) whose ID is `kbjnmhnlikmbdaclkngldbnbdnjbpaic`, and the CRX3
+header of the previous `animexin-yt-gestures.crx` proves it signed that
+build. So the phone's currently-installed copy is `kbjnmhnl…`, and a crx
+signed with the vault key arrives as a **new** extension beside it rather
+than an update — the old copy must be uninstalled and its saved playback
+positions do not carry over. The user chose the vault key knowing this.
+**Hazard left in place**: the working copy's `signing-key.pem` is still the
+older key, so a future `--pack-extension-key=$PWD/signing-key.pem` would
+silently produce `kbjnmhnl…` again. Pack with the vault path explicitly, or
+replace the working copy from the vault (keep a backup of the old key first —
+it signed real builds). Also note the vault README's "Working copy" path
+(`~/user/projects/web/extensions/...`) does not exist; this checkout is at
+`~/user/lib/own/web/edge-extensions/animexin-yt-gestures`.
+**Why**: The ID is derived from the key, so which key signs is not a detail —
+it decides whether Edge updates in place or installs a duplicate.
