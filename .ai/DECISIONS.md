@@ -137,12 +137,17 @@ build. So the phone's currently-installed copy is `kbjnmhnl…`, and a crx
 signed with the vault key arrives as a **new** extension beside it rather
 than an update — the old copy must be uninstalled and its saved playback
 positions do not carry over. The user chose the vault key knowing this.
-**Hazard left in place**: the working copy's `signing-key.pem` is still the
-older key, so a future `--pack-extension-key=$PWD/signing-key.pem` would
-silently produce `kbjnmhnl…` again. Pack with the vault path explicitly, or
-replace the working copy from the vault (keep a backup of the old key first —
-it signed real builds). Also note the vault README's "Working copy" path
-(`~/user/projects/web/extensions/...`) does not exist; this checkout is at
-`~/user/lib/own/web/edge-extensions/animexin-yt-gestures`.
+**Hazard removed** (same day): there is no longer any key in this working
+copy. The older key was archived to the vault as
+`signing-key.superseded-2026-08-24.pem` (byte-identical copy verified with
+`cmp` before deleting the original) and removed from the project root, so a
+`--pack-extension-key=$PWD/signing-key.pem` can no longer silently produce
+`kbjnmhnl…` — it simply fails. **Packing must now name the vault path**; the
+command lives in the vault README, which was also corrected (it had recorded a
+"Working copy" path, `~/user/projects/web/extensions/...`, that does not
+exist — this checkout is at
+`~/user/lib/own/web/edge-extensions/animexin-yt-gestures`). The key was never
+tracked by git and never in this repo's history, so removing it needed no
+history rewrite.
 **Why**: The ID is derived from the key, so which key signs is not a detail —
 it decides whether Edge updates in place or installs a duplicate.
